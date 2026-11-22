@@ -1,0 +1,414 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ENSAK · Microservices</title>
+<style>
+  :root {
+    --paper: #f4f1ea;
+    --card: #fbfaf6;
+    --ink: #1c1b19;
+    --muted: #7a766d;
+    --line: #dcd6c8;
+    --ok: #2f7d4f;
+    --ko: #c2432f;
+    --accent: #1f4e79;
+    --mono: ui-monospace, "Cascadia Code", "Consolas", "SFMono-Regular", monospace;
+    --sans: "Segoe UI", system-ui, -apple-system, sans-serif;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: var(--sans);
+    background: var(--paper);
+    color: var(--ink);
+    min-height: 100vh;
+    padding: 32px 40px 48px;
+  }
+
+  /* ---------- En-tete ---------- */
+  header {
+    display: flex; justify-content: space-between; align-items: flex-end;
+    border-bottom: 2px solid var(--ink);
+    padding-bottom: 14px; margin-bottom: 26px; gap: 20px; flex-wrap: wrap;
+  }
+  .brand small {
+    font-family: var(--mono); font-size: 12px; letter-spacing: .12em;
+    text-transform: uppercase; color: var(--muted);
+  }
+  .brand h1 { font-size: 30px; font-weight: 700; letter-spacing: -.02em; margin-top: 4px; }
+  .brand h1 span { color: var(--accent); }
+  .endpoint { font-family: var(--mono); font-size: 13px; color: var(--muted); }
+  .endpoint b { color: var(--ink); font-weight: 600; }
+
+  /* ---------- Bande d'architecture (etat des services) ---------- */
+  .archi {
+    display: grid;
+    grid-template-columns: minmax(0,1.1fr) auto minmax(0,1fr) minmax(0,1fr) minmax(0,1fr);
+    align-items: stretch; gap: 0; margin-bottom: 30px;
+  }
+  .node {
+    background: var(--card); border: 1px solid var(--line);
+    padding: 14px 16px; position: relative;
+  }
+  .node + .node { border-left: none; }
+  .node .label {
+    font-family: var(--mono); font-size: 11px; color: var(--muted);
+    text-transform: uppercase; letter-spacing: .1em;
+  }
+  .node .name { font-size: 17px; font-weight: 600; margin: 4px 0 8px; }
+  .node .meta { font-family: var(--mono); font-size: 12px; color: var(--muted); }
+  .node.gateway { background: var(--ink); color: var(--paper); border-color: var(--ink); }
+  .node.gateway .label, .node.gateway .meta { color: #b9b3a6; }
+  .arrow {
+    display: flex; align-items: center; padding: 0 14px;
+    font-family: var(--mono); color: var(--muted); font-size: 20px;
+  }
+  .state {
+    position: absolute; top: 14px; right: 14px;
+    font-family: var(--mono); font-size: 11px; font-weight: 700;
+    display: flex; align-items: center; gap: 6px; text-transform: uppercase;
+  }
+  .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--muted); }
+  .up .dot { background: var(--ok); box-shadow: 0 0 0 4px rgba(47,125,79,.15); }
+  .up .state { color: var(--ok); }
+  .down .dot { background: var(--ko); box-shadow: 0 0 0 4px rgba(194,67,47,.15); }
+  .down .state { color: var(--ko); }
+  .node.down { background: #fbeee9; }
+  .node.gateway.up .state { color: #7fd1a0; }
+
+  /* ---------- Colonnes ---------- */
+  .grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 22px; }
+  .panel {
+    background: var(--card); border: 1px solid var(--line);
+    display: flex; flex-direction: column; min-height: 420px;
+  }
+  .panel-head {
+    padding: 16px 18px 12px; border-bottom: 1px solid var(--line);
+    display: flex; justify-content: space-between; align-items: baseline;
+  }
+  .panel-head h2 { font-size: 19px; font-weight: 700; }
+  .panel-head code { font-family: var(--mono); font-size: 12px; color: var(--muted); }
+  form { padding: 14px 18px; display: grid; gap: 8px; border-bottom: 1px dashed var(--line); }
+  input, select {
+    font: inherit; font-size: 14px; padding: 9px 10px;
+    border: 1px solid var(--line); background: #fff; color: var(--ink);
+    border-radius: 0; outline: none;
+  }
+  input:focus, select:focus { border-color: var(--ink); }
+  .row { display: grid; grid-template-columns: minmax(0,1fr) minmax(0,1fr); gap: 8px; }
+  input, select { min-width: 0; width: 100%; }
+  button {
+    font: inherit; font-size: 14px; font-weight: 600; cursor: pointer;
+    padding: 9px 12px; border: 1px solid var(--ink);
+    background: var(--ink); color: var(--paper);
+  }
+  button:hover { background: var(--accent); border-color: var(--accent); }
+
+  ul { list-style: none; padding: 6px 0; flex: 1; overflow-y: auto; max-height: 360px; }
+  li {
+    padding: 10px 18px; display: flex; justify-content: space-between; align-items: center;
+    gap: 10px; border-bottom: 1px solid #eee9de; font-size: 14px;
+  }
+  li:last-child { border-bottom: none; }
+  li .id { font-family: var(--mono); font-size: 12px; color: var(--muted); min-width: 26px; }
+  li .main { flex: 1; }
+  li .sub { color: var(--muted); font-size: 13px; }
+  li .val { font-family: var(--mono); font-weight: 700; font-size: 15px; }
+  li.clickable { cursor: pointer; }
+  li.clickable:hover { background: #f1ede3; }
+  .moy {
+    font-family: var(--mono); font-size: 12px; padding: 3px 8px;
+    border: 1px solid var(--accent); color: var(--accent); white-space: nowrap;
+  }
+  .na { color: var(--ko); font-style: italic; }
+  .empty, .error {
+    padding: 22px 18px; font-size: 14px; color: var(--muted); font-style: italic;
+  }
+  .error { color: var(--ko); font-style: normal; font-family: var(--mono); font-size: 13px; }
+  .hint { padding: 10px 18px; font-size: 12px; color: var(--muted); border-top: 1px solid var(--line); }
+
+  /* ---------- Notification ---------- */
+  #toast {
+    position: fixed; bottom: 24px; right: 24px; max-width: 380px;
+    padding: 12px 16px; font-family: var(--mono); font-size: 13px;
+    background: var(--ink); color: var(--paper);
+    transform: translateY(calc(100% + 40px)); opacity: 0; transition: transform .25s ease, opacity .25s ease;
+  }
+  #toast.show { transform: translateY(0); opacity: 1; }
+  #toast.err { background: var(--ko); }
+
+  @media (max-width: 1000px) {
+    body { padding: 20px; }
+    .grid, .archi { grid-template-columns: 1fr; }
+    .arrow { display: none; }
+    .node + .node { border-left: 1px solid var(--line); border-top: none; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="brand">
+    <small>ENSA Kénitra · Mini-projet Cloud</small>
+    <h1>Gestion des étudiants <span>/ microservices</span></h1>
+  </div>
+  <div class="endpoint">Point d'entrée unique : <b id="origin"></b></div>
+</header>
+
+<!-- Etat des services en direct -->
+<section class="archi">
+  <div class="node gateway" id="node-gateway">
+    <div class="state"><span class="dot"></span><span class="txt">…</span></div>
+    <div class="label">API Gateway</div>
+    <div class="name">Nginx</div>
+    <div class="meta">:8080 → routage</div>
+  </div>
+  <div class="arrow">→</div>
+  <div class="node" id="node-etudiants">
+    <div class="state"><span class="dot"></span><span class="txt">…</span></div>
+    <div class="label">Service</div>
+    <div class="name">etudiants</div>
+    <div class="meta" id="lat-etudiants">Flask + PostgreSQL</div>
+  </div>
+  <div class="node" id="node-cours">
+    <div class="state"><span class="dot"></span><span class="txt">…</span></div>
+    <div class="label">Service</div>
+    <div class="name">cours</div>
+    <div class="meta" id="lat-cours">Flask + PostgreSQL</div>
+  </div>
+  <div class="node" id="node-notes">
+    <div class="state"><span class="dot"></span><span class="txt">…</span></div>
+    <div class="label">Service</div>
+    <div class="name">notes</div>
+    <div class="meta" id="lat-notes">Flask + PostgreSQL</div>
+  </div>
+</section>
+
+<main class="grid">
+  <!-- ETUDIANTS -->
+  <section class="panel">
+    <div class="panel-head"><h2>Étudiants</h2><code>/etudiants</code></div>
+    <form id="form-etudiant">
+      <div class="row">
+        <input name="nom" placeholder="Nom" required>
+        <input name="filiere" placeholder="Filière" required>
+      </div>
+      <button type="submit">Ajouter l'étudiant</button>
+    </form>
+    <ul id="list-etudiants"></ul>
+    <div class="hint">Clique sur un étudiant pour calculer sa moyenne (service notes).</div>
+  </section>
+
+  <!-- COURS -->
+  <section class="panel">
+    <div class="panel-head"><h2>Cours</h2><code>/cours</code></div>
+    <form id="form-cours">
+      <div class="row">
+        <input name="nom" placeholder="Module" required>
+        <input name="professeur" placeholder="Professeur" required>
+      </div>
+      <button type="submit">Ajouter le cours</button>
+    </form>
+    <ul id="list-cours"></ul>
+  </section>
+
+  <!-- NOTES -->
+  <section class="panel">
+    <div class="panel-head"><h2>Notes</h2><code>/notes</code></div>
+    <form id="form-note">
+      <div class="row">
+        <select name="etudiant_id" id="sel-etudiant" required></select>
+        <select name="cours_id" id="sel-cours" required></select>
+      </div>
+      <input name="valeur" type="number" min="0" max="20" step="0.25" placeholder="Note /20" required>
+      <button type="submit">Attribuer la note</button>
+    </form>
+    <ul id="list-notes"></ul>
+    <div class="hint">Le service notes vérifie l'étudiant et le cours auprès des deux autres services.</div>
+  </section>
+</main>
+
+<div id="toast"></div>
+
+<script>
+  document.getElementById("origin").textContent = location.host;
+
+  // ---------- Utilitaires ----------
+  const $ = (id) => document.getElementById(id);
+  const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({
+    "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"
+  }[c]));
+
+  let toastTimer;
+  function toast(msg, isError = false) {
+    const t = $("toast");
+    t.textContent = msg;
+    t.className = "show" + (isError ? " err" : "");
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => (t.className = ""), 3200);
+  }
+
+  // Appel a la gateway : renvoie le JSON ou leve une erreur lisible
+  async function api(path, options = {}) {
+    let res;
+    try {
+      res = await fetch(path, {
+        headers: { "Content-Type": "application/json" },
+        ...options,
+      });
+    } catch {
+      throw new Error("gateway injoignable");
+    }
+    let data = null;
+    try { data = await res.json(); } catch { /* pas de JSON (ex: 502) */ }
+    if (!res.ok) {
+      if (data && data.erreur) throw new Error(data.erreur);
+      if (res.status === 502 || res.status === 504) throw new Error("service indisponible");
+      throw new Error("erreur " + res.status);
+    }
+    return data;
+  }
+
+  // ---------- Etat des services ----------
+  async function checkNode(nodeId, url, latId) {
+    const node = $(nodeId);
+    const t0 = performance.now();
+    let ok = false;
+    try {
+      const res = await fetch(url, { cache: "no-store" });
+      ok = res.ok;
+    } catch { ok = false; }
+    const ms = Math.round(performance.now() - t0);
+    node.classList.toggle("up", ok);
+    node.classList.toggle("down", !ok);
+    node.querySelector(".txt").textContent = ok ? "en ligne" : "hors ligne";
+    if (latId) $(latId).textContent = ok ? `Flask + PostgreSQL · ${ms} ms` : "ne répond pas";
+    return ok;
+  }
+
+  const lastState = {};
+  async function refreshStatus() {
+    const states = await Promise.all([
+      checkNode("node-gateway", "/health"),
+      checkNode("node-etudiants", "/status/etudiants", "lat-etudiants"),
+      checkNode("node-cours", "/status/cours", "lat-cours"),
+      checkNode("node-notes", "/status/notes", "lat-notes"),
+    ]);
+    const names = ["gateway", "etudiants", "cours", "notes"];
+    let changed = false;
+    names.forEach((n, i) => {
+      if (lastState[n] !== undefined && lastState[n] !== states[i]) changed = true;
+      lastState[n] = states[i];
+    });
+    if (changed) loadAll();   // un service tombe ou revient : on rafraichit les listes
+  }
+
+  // ---------- Chargement des listes ----------
+  async function loadEtudiants() {
+    const ul = $("list-etudiants"), sel = $("sel-etudiant");
+    try {
+      const data = await api("/etudiants");
+      ul.innerHTML = data.length ? data.map((e) => `
+        <li class="clickable" data-id="${e.id}">
+          <span class="id">#${e.id}</span>
+          <span class="main">${esc(e.nom)} <span class="sub">· ${esc(e.filiere)}</span></span>
+          <span class="moy-slot"></span>
+        </li>`).join("") : `<div class="empty">Aucun étudiant pour l'instant.</div>`;
+      sel.innerHTML = `<option value="">Étudiant…</option>` +
+        data.map((e) => `<option value="${e.id}">${esc(e.nom)}</option>`).join("");
+    } catch (err) {
+      ul.innerHTML = `<div class="error">⚠ etudiants : ${esc(err.message)}</div>`;
+      sel.innerHTML = `<option value="">indisponible</option>`;
+    }
+  }
+
+  async function loadCours() {
+    const ul = $("list-cours"), sel = $("sel-cours");
+    try {
+      const data = await api("/cours");
+      ul.innerHTML = data.length ? data.map((c) => `
+        <li>
+          <span class="id">#${c.id}</span>
+          <span class="main">${esc(c.nom)}</span>
+          <span class="sub">${esc(c.professeur)}</span>
+        </li>`).join("") : `<div class="empty">Aucun cours pour l'instant.</div>`;
+      sel.innerHTML = `<option value="">Cours…</option>` +
+        data.map((c) => `<option value="${c.id}">${esc(c.nom)}</option>`).join("");
+    } catch (err) {
+      ul.innerHTML = `<div class="error">⚠ cours : ${esc(err.message)}</div>`;
+      sel.innerHTML = `<option value="">indisponible</option>`;
+    }
+  }
+
+  async function loadNotes() {
+    const ul = $("list-notes");
+    try {
+      const data = await api("/notes");
+      const fmt = (v) => v.startsWith("(") ? `<span class="na">${esc(v)}</span>` : esc(v);
+      ul.innerHTML = data.length ? data.map((n) => `
+        <li>
+          <span class="main">${fmt(n.etudiant)} <span class="sub">· ${fmt(n.cours)}</span></span>
+          <span class="val">${n.valeur}</span>
+        </li>`).join("") : `<div class="empty">Aucune note pour l'instant.</div>`;
+    } catch (err) {
+      ul.innerHTML = `<div class="error">⚠ notes : ${esc(err.message)}</div>`;
+    }
+  }
+
+  function loadAll() { loadEtudiants(); loadCours(); loadNotes(); }
+
+  // ---------- Moyenne au clic sur un etudiant ----------
+  $("list-etudiants").addEventListener("click", async (e) => {
+    const li = e.target.closest("li[data-id]");
+    if (!li) return;
+    const slot = li.querySelector(".moy-slot");
+    slot.innerHTML = `<span class="moy">…</span>`;
+    try {
+      const m = await api(`/notes/etudiant/${li.dataset.id}/moyenne`);
+      slot.innerHTML = `<span class="moy">moy. ${m.moyenne ?? "—"} · ${m.nombre_de_notes} note(s)</span>`;
+    } catch (err) {
+      slot.innerHTML = `<span class="moy na">${esc(err.message)}</span>`;
+    }
+  });
+
+  // ---------- Formulaires ----------
+  function bindForm(formId, path, build, onDone, label) {
+    $(formId).addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const form = e.target;
+      const body = build(new FormData(form));
+      try {
+        await api(path, { method: "POST", body: JSON.stringify(body) });
+        form.reset();
+        toast(`✓ ${label} ajouté(e)`);
+        onDone();
+      } catch (err) {
+        toast(`✗ ${err.message}`, true);
+      }
+    });
+  }
+
+  bindForm("form-etudiant", "/etudiants",
+    (f) => ({ nom: f.get("nom").trim(), filiere: f.get("filiere").trim() }),
+    () => { loadEtudiants(); }, "étudiant");
+
+  bindForm("form-cours", "/cours",
+    (f) => ({ nom: f.get("nom").trim(), professeur: f.get("professeur").trim() }),
+    () => { loadCours(); }, "cours");
+
+  bindForm("form-note", "/notes",
+    (f) => ({
+      etudiant_id: Number(f.get("etudiant_id")),
+      cours_id: Number(f.get("cours_id")),
+      valeur: Number(f.get("valeur")),
+    }),
+    () => { loadNotes(); }, "note");
+
+  // ---------- Demarrage ----------
+  loadAll();
+  refreshStatus();
+  setInterval(refreshStatus, 3000);
+</script>
+</body>
+</html>
